@@ -3,6 +3,7 @@
 # venv.md Quarto document
 venv_files
 venv.html
+.venv/
 
 # Code environnement
 .vscode
