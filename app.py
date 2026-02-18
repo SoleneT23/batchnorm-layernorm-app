@@ -281,6 +281,9 @@ def fashionmnist():
 
     dropout_rate = st.slider("Choose the dropout rate", 0.0, 0.9, 0.0, 0.1)
 
+    use_batchnorm = st.checkbox("Use Batch Normalization", value=True) # ajout perso
+
+    
     epochs = st.slider("Choose the number of epochs to train", 1, 1000, 50)
     st.write(
         "Note that the epoch parameter is only relevant for training a new model, so if there is no already saved model for this config"

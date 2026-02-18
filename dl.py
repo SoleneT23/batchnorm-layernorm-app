@@ -94,10 +94,13 @@ class FMNIST_MLP(nn.Module):
         The training metrics dataframe.
     """
 
-    def __init__(self, hidden_layers=2, dropout_rate=0.0):
+    def __init__(self, hidden_layers=2, dropout_rate=0.0,  use_batchnorm=False):
 
         super().__init__()
         self.flatten = nn.Flatten()
+        self.use_batchnorm = use_batchnorm # ajout 
+        
+        
         list_hidden = []
         for _ in range(hidden_layers - 1):
             list_hidden.append(nn.Linear(512, 512))

@@ -32,7 +32,7 @@ def poly(x, order=3):
     return x_out
 
 
-def paths(hidden_layers=2, dropout_rate=0.0):
+def paths(hidden_layers=2, dropout_rate=0.0, use_batchnorm=False):
     """File paths for model weights and metrics from model parameters.
 
     The input vector is evaluated element-wise
@@ -60,6 +60,9 @@ def paths(hidden_layers=2, dropout_rate=0.0):
         + str(hidden_layers)
         + "_dropout_rate="
         + str(dropout_rate)
+        + "_batchnorm="
+        + str(use_batchnorm)
+
     )
     path_weights = base_name + ".pth"
     path_metrics = base_name + "_metrics.csv"
