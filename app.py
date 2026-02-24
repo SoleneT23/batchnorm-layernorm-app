@@ -43,9 +43,9 @@ def main():
         "Choose the app mode",
         [
             "Show instructions",
-            "Home data regression",
-            "Sinus regression",
-            "Show MNIST",
+            #"Home data regression", 
+            #"Sinus regression",
+            #"Show MNIST",
             "Deep Learning",
         ],
     )  # , "Show the source code"])
@@ -290,7 +290,7 @@ def fashionmnist():
     )
 
     if st.button("Delete saved model and train again"):
-        path_weights, path_metrics = paths(hidden_layers, dropout_rate)
+        path_weights, path_metrics = paths(hidden_layers, dropout_rate, use_batchnorm) # ajout use_batchnorm
         try:
             os.remove(path_weights)
             os.remove(path_metrics)
@@ -305,6 +305,7 @@ def fashionmnist():
         test_dataloader,
         hidden_layers=hidden_layers,
         dropout_rate=dropout_rate,
+        use_batchnorm=use_batchnorm, # ajout 
         epochs=epochs,
         mode="st",
     )

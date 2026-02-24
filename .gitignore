@@ -29,3 +29,6 @@ yolov3*
 
 # Documentation
 build
+
+# Run training from terminal without Streamlit
+run_fmnist.py

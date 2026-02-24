@@ -98,16 +98,21 @@ class FMNIST_MLP(nn.Module):
 
         super().__init__()
         self.flatten = nn.Flatten()
+
+
         self.use_batchnorm = use_batchnorm # ajout 
-        
         
         list_hidden = []
         for _ in range(hidden_layers - 1):
             list_hidden.append(nn.Linear(512, 512))
+            if use_batchnorm: # ajout
+                list_hidden.append(nn.BatchNorm1d(512)) # ajout
             list_hidden.append(nn.ReLU())
             list_hidden.append(nn.Dropout(dropout_rate))
+
         self.linear_relu_stack = nn.Sequential(
             nn.Linear(28 * 28, 512),
+            nn.BatchNorm1d(512) if use_batchnorm else nn.Identity(), # ajout
             nn.ReLU(),
             nn.Dropout(dropout_rate),
             *list_hidden,
@@ -279,6 +284,7 @@ def get_and_train_model(
     test_dataloader,
     hidden_layers=2,
     dropout_rate=0.0,
+    use_batchnorm=False, # ajout
     epochs=5,
     mode=None,
 ):
@@ -318,8 +324,8 @@ def get_and_train_model(
         print(f"Using {device} device")
 
     # Create the model
-    model = FMNIST_MLP(hidden_layers, dropout_rate)
-    path_weights, path_metrics = paths(hidden_layers, dropout_rate)
+    model = FMNIST_MLP(hidden_layers, dropout_rate, use_batchnorm=use_batchnorm) # use_batchnorm = use_batchnorm ajouté
+    path_weights, path_metrics = paths(hidden_layers, dropout_rate, use_batchnorm) # use_batchnorm ajouté
 
     # Load the weights if they already exist
     if os.path.exists(path_weights):
@@ -327,7 +333,9 @@ def get_and_train_model(
             print("model already exists, let us just load it")
         elif mode == "st":
             st.write("Found a saved model with given config")
-        model.load_state_dict(torch.load(path_weights))
+        #model.load_state_dict(torch.load(path_weights))
+        state = torch.load(path_weights, weights_only=True, map_location=device) # ajout
+        model.load_state_dict(state) # ajout
         metrics = pd.read_csv(path_metrics, index_col=0)
         model.set_metrics(metrics)
     model = model.to(device)
@@ -391,6 +399,7 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--epochs", type=int, default=5)
     parser.add_argument("--hidden", type=int, default=2)
     parser.add_argument("--dropout_rate", type=float, default=0.0)
+    parser.add_argument("--batchnorm", action="store_true") # ajout
     args = parser.parse_args()
 
     train_dataloader, test_dataloader = get_FashionMNIST_datasets(64)
@@ -406,6 +415,7 @@ if __name__ == "__main__":
         hidden_layers=args.hidden,
         dropout_rate=args.dropout_rate,
         epochs=args.epochs,
+        use_batchnorm=args.batchnorm, # ajout 
         mode=mode,
     )
     training_curves(model, mode)
