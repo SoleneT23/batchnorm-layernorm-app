@@ -3,21 +3,100 @@
 
 # Projet de Deep Learning
 
-This repository serves as a template for the class "Projet de Deep Learning" in the 1st year of Master "Mathématiques et Intelligence Artificielle" of Université Paris-Saclay. Namely, this repository contains the code of a toy [Streamlit](https://streamlit.io/) application.
+## Installation
 
-## Content
+### Standard installation
 
-The user can select four modes in the sidebar of the application.
-1. "Home data regression" performs regression with three simple methods (using decision trees and random forests) on a simple dataset of house prices. The user can select which covariates to use in the regression and visualize the validation MAE of the three methods.
-2. "Sinus regression" performs regression with polynomial regression and decision trees on the sinus function, with noise. The user can select the density of noisy data points and the order of the polynoms. The regressors are then plotted, with the data points.
-3. "Show MNIST" visualizes 6 random data points of the MNIST dataset and their labels.
-4. "Deep Learning" trains (or use trained weights if available) a simple artificial neuron network on the Fashion MNIST datatset, displays the architecture, displays the curves of train and test loss and train and test accuracy, and finally visualizes 6 random data points of the dataset, their labels and the predicition of the model. The user can select the number of hidden layers (it is a simple MLP), the level of dropout and the number of epochs. If trained weights for the same combination of hidden layers and dropout are found, they are used. If not, a model is trained and then the weights and metrics are saved. In the former case, a button allows the user to delete the trained weights and metrics and start a new training.
+pip install -r requirements.txt
+
+### If installation fails (especially on pyarrow)
+
+Some environments may fail when installing `datasets` with pip due to `pyarrow`.
+
+In that case, run:
+
+conda install -c conda-forge pyarrow datasets
+
+# Fashion-MNIST MLP
+
+"MLP and normalization" trains (or use trained weights if available) a simple artificial neuron network on the Fashion MNIST datatset, displays the architecture, displays the curves of train and test loss and train and test accuracy. The user can select the number of hidden layers (it is a simple MLP), the level of dropout, the number of epochs, whether to add a Batch Normalization layer or not, and can compare different
+learning rates.
+If trained weights for the same combination of hyperparameters are found, they are used. If not, a model is trained and then the weights and metrics are saved. In the former case, a button allows the user to delete the trained weights and metrics and start a new training.
+
+
+## Effect of Batch Normalization
+
+We compare the test loss and test accuracy with and without Batch Normalization (BN). 
+We observe that the metrics are generally better when a BN layer is used.
+
+## Effect of Learning Rate with and without Batch Normalization
+
+We compare the impact of the learning rate on model performance, both with and without Batch Normalization.
+
+In the paper *Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift* [Ioffe & Szegedy, 2015], the authors show that Batch Normalization allows the use of higher learning rates. 
+
+However, in our experiments on FashionMNIST, we observe a different behavior:
+the model without BN performs better when the learning rate increases, while the model with BN performs better with a smaller learning rate.
+
+One possible explanation is the choice of activation function.
+The paper uses sigmoid activations, which can easily lead to saturation and vanishing gradients, making training more sensitive to the learning rate. In contrast, our implementation uses ReLU activations, which do not have this issues.
+
+
+
+## Pretrained models
+
+This application relies on pretrained models to provide fast results.
+
+The model weights are not included in this repository due to their size.  
+Please download them from the following link and place the `saved_models/` folder at the root of the project:
+
+[Google Drive link](https://drive.google.com/file/d/1WrcDHHXVwf5guJ2RGfLU0CS9UH4H83ER/view?usp=sharing)
+
+If a `saved_models/` folder already exists, merge the downloaded files into it. If prompted, choose “Skip” or “Replace” (avoid “Keep Both”).
+
+You can then test the available models or train new ones directly in the app.
+
+### Instructions
+
+1. Download `saved_models.zip`
+2. Extract it
+3. Place the `saved_models/` folder at the root of the project
+4. If a `saved_models/` folder already exists, simply merge the downloaded files into it.
+This will allow you to keep both pretrained and newly trained models.
+
+
+### Available pretrained models
+
+The following configurations are available:
+
+
+
+Total: 18 pretrained models
+
+
+# "RNN Sentiment analysis" mode
+
+The RNN page compares Batch Normalization and Layer Normalization on an IMDb sentiment classification task. For a fixed architecture and training setup, both models are trained and their loss and accuracy curves are displayed on the same graphs.
+
+## Maximum sequence length
+
+The maximum sequence length controls how many words from each review are given as input to the model.
+
+If a review is longer than this value, it is truncated (only the first words are kept).
+If a review is shorter, it is padded with special tokens so that all inputs have the same length.
+
+
+## Train subset size and Test subset size : 
+Train subset size controls how many training examples are used to train the RNN.
+Test subset size controls how many examples are used to evaluate its performance.
+Using smaller subsets makes training much faster. 
 
 ## Miscellaneous
 
 ### pre-commit usage
 
 This repo uses 2 pre-commit hooks: black and flake8. Contributors should install pre-commit (`pip install pre-commit`) and then run `pre-commit install` to install the hooks. Update the hooks with `pre-commit autoupdate`.
+
 
 ### docstrings
 

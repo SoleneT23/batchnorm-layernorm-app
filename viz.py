@@ -86,13 +86,57 @@ def training_curves(model, mode=None):
     plt.plot(model.metrics.index, "test_loss", data=model.metrics)
     plt.legend()
     plt.title("Train and test loss during training")
+    plt.xlabel("Epoch")
     plt.subplot(2, 1, 2)
     plt.tight_layout(pad=padding)
     plt.plot(model.metrics.index, "train_acc", data=model.metrics)
     plt.plot(model.metrics.index, "test_acc", data=model.metrics)
     plt.legend()
     plt.title("Train and test accuracy during training")
+    plt.xlabel("Epoch")
     if mode == "script":
         plt.show()
     elif mode == "st":
         st.pyplot(fig)
+
+
+def compare_training_curves(models, mode=None):
+    """Compare test loss and test accuracy for several models.
+
+    Parameters
+    ----------
+    models: list
+        A list of tuples (label, model), where label identifies each model
+        (for example a learning rate or a normalization type).
+    mode: str
+        Either "script" or "st".
+    """
+    fig = plt.figure()
+    fig.set_figheight(10)
+    padding = 2
+
+    plt.subplot(2, 1, 1)
+    plt.tight_layout(pad=padding)
+    for label, model in models:
+        epochs = np.array(model.metrics.index) + 1
+        plt.plot(epochs, model.metrics["test_loss"], label=str(label))
+    plt.legend()
+    plt.title("Test loss comparison")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+
+    plt.subplot(2, 1, 2)
+    plt.tight_layout(pad=padding)
+    for label, model in models:
+        epochs = np.array(model.metrics.index) + 1
+        plt.plot(epochs, model.metrics["test_acc"], label=str(label))
+    plt.legend()
+    plt.title("Test accuracy comparison")
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+
+    if mode == "script":
+        plt.show()
+    elif mode == "st":
+        st.pyplot(fig)
+

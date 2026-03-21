@@ -1,38 +1,8 @@
 """This module contains useful functions for other modules.
 """
 
-import numpy as np
 
-
-def poly(x, order=3):
-    """Evaluates the different powers of an input vector.
-
-    The input vector is evaluated element-wise
-    to the power 1, 2, ..., `order`. The resulting vectors
-    are then concatenated and returned.
-
-    Parameters
-    ----------
-    x: array_like
-        The input vector, of shape `(n, 1)`.
-    order: int
-        The maximum order to which the powers of
-        `x`are computed.
-
-    Returns
-    -------
-    x_out: array_like
-        The concatenation of all
-        the powers of `x`, of shape `(n, order)`.
-
-    """
-    x_out = x
-    for i in range(2, order + 1):
-        x_out = np.concatenate((x_out, np.power(x, i)), axis=1)
-    return x_out
-
-
-def paths(hidden_layers=2, dropout_rate=0.0, use_batchnorm=False):
+def paths(hidden_layers=2, dropout_rate=0.0, norm_type="none", lr=None, epochs = None):
     """File paths for model weights and metrics from model parameters.
 
     The input vector is evaluated element-wise
@@ -45,6 +15,14 @@ def paths(hidden_layers=2, dropout_rate=0.0, use_batchnorm=False):
         The number of hidden fully connected layers.
     dropout_rate: float, default=0
         The dropout rate.
+    norm_type: str, default="none"
+        The type of normalization applied after each hidden layer.
+        Must be one of {"none", "batchnorm", "layernorm"}.
+    lr: float or None, default=None
+        The learning rate used to train the model.
+    epochs: int or None, default=None
+        The number of training epochs used to generate the model.
+
 
     Returns
     -------
@@ -60,10 +38,49 @@ def paths(hidden_layers=2, dropout_rate=0.0, use_batchnorm=False):
         + str(hidden_layers)
         + "_dropout_rate="
         + str(dropout_rate)
-        + "_batchnorm="
-        + str(use_batchnorm)
+        + "_norm="
+        + str(norm_type)
 
     )
+
+    if epochs is not None:
+        base_name += "_epochs=" + str(epochs)
+
+    if lr is not None:
+        base_name += "_lr=" + str(lr)
+
+    path_weights = base_name + ".pth"
+    path_metrics = base_name + "_metrics.csv"
+    return path_weights, path_metrics
+
+
+def paths_rnn(
+    embedding_dim=64,
+    hidden_dim=128,
+    num_layers=1,
+    dropout_rate=0.0,
+    norm_type="none",
+    epochs=None,
+    lr=None,
+    max_len=200,
+    train_size=2000,
+):
+    base_name = (
+        "saved_models/imdb_rnn"
+        + f"_emb={embedding_dim}"
+        + f"_hid={hidden_dim}"
+        + f"_layers={num_layers}"
+        + f"_dropout={dropout_rate}"
+        + f"_norm={norm_type}"
+        + f"_maxlen={max_len}"
+        + f"_ntrain={train_size}"
+    )
+
+    if epochs is not None:
+        base_name += f"_epochs={epochs}"
+    if lr is not None:
+        base_name += f"_lr={lr}"
+
     path_weights = base_name + ".pth"
     path_metrics = base_name + "_metrics.csv"
     return path_weights, path_metrics

@@ -4,255 +4,46 @@ Contains most of the functions governing the
 different app modes.
 
 """
-
 import os
-
 import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import mean_absolute_error
-from sklearn.model_selection import train_test_split
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression
-from torchvision.datasets import MNIST
-from torchvision.transforms import ToTensor
-
-from viz import mnist_like_viz, training_curves
-from utils import poly, paths
+from viz import mnist_like_viz, training_curves, compare_training_curves
+from utils import paths
 import dl
 
 
 def main():
     """The main function of the app.
 
-    Calls the appropriate mode function, depending on the user's choice
-    in the sidebar. The mode function that can be called are
-    `regression`, `sinus`, `mnist_viz`, and `fashionmnist`.
-
     Returns
     -------
     None
     """
-    st.title("Some data manipulations")
-
-    home_data = get_data()
-
+    
     app_mode = st.sidebar.selectbox(
         "Choose the app mode",
         [
             "Show instructions",
-            #"Home data regression", 
-            #"Sinus regression",
-            #"Show MNIST",
-            "Deep Learning",
+            
+            "MLP and normalization",
+            "RNN sentiment analysis",
         ],
     )  # , "Show the source code"])
     if app_mode == "Show instructions":
         st.write("To continue select a mode in the selection box to the left.")
-    # elif app_mode == "Show the source code":
-    #     st.code(get_file_content_as_string("./app.py"))
-    elif app_mode == "Home data regression":
-        regression(home_data)
-    elif app_mode == "Sinus regression":
-        sinus()
-    elif app_mode == "Show MNIST":
-        mnist()
-    elif app_mode == "Deep Learning":
+    elif app_mode == "MLP and normalization":
         fashionmnist()
+    elif app_mode == "RNN sentiment analysis":
+        imdb_rnn_page()
 
+def show_instructions():
+    st.title("Instructions")
 
-@st.cache_data
-def get_data():
-    """Loads the home training data.
+    st.write("""
+    This app allows you to explore normalization techniques in deep learning.
 
-    Returns
-    -------
-    home_data: pd.DataFrame
-        The home training data.
-
-    Notes
-    -----
-    This is the dataset dowloaded from https://www.kaggle.com/competitions/home-data-for-ml-course/data.
-
-    """
-    iowa_file_path = "./home-data-for-ml-course/train.csv"
-    home_data = pd.read_csv(iowa_file_path)
-    return home_data
-
-
-# def get_file_content_as_string(path):
-#     with open(path) as f:
-#         lines = f.read()
-#     return lines
-
-
-def regression(home_data):
-    """Performs regression on the home training data.
-
-    The dataset is split in a training and
-    a validation sets.
-    The user has the choice of which covariates to incoporate
-    in the model. Then a decision tree, a decision tree
-    with `max_leaf_nodes=100`, and a random forest are fitted
-    on the training set. Finally the validation mean
-    absolute errors are displayed.
-
-    Parameters
-    ----------
-    home_data: pd.DataFrame
-        The home training data. It can be any DataFrame except it needs
-        the columns `SalePrice`, `LotArea`, `YearBuilt`, `1stFlrSF`,
-        `2ndFlrSF`, `FullBath`, `BedroomAbvGr`, and `TotRmsAbvGrd`.
-
-    Returns
-    -------
-    None
-
-    """
-    # Create target object and call it y
-    y = home_data.SalePrice
-
-    features = [
-        "LotArea",
-        "YearBuilt",
-        "1stFlrSF",
-        "2ndFlrSF",
-        "FullBath",
-        "BedroomAbvGr",
-        "TotRmsAbvGrd",
-    ]
-    home_data_extracted = home_data[["SalePrice"] + features]
-
-    st.text(
-        "This is the head of the dataframe of Iowa house prices with many covariates"
-    )
-    st.write(home_data_extracted.head())
-
-    # Create X
-    covariates = st.multiselect(
-        "Select covariates to keep for regression:", features, features
-    )
-    covariates.sort()
-    X = home_data[covariates]
-
-    # Split into validation and training data
-    train_X, val_X, train_y, val_y = train_test_split(X, y, random_state=1)
-
-    dict_val_maes = {"method": [], "Val MAE": []}
-
-    # Specify Model
-    iowa_model = DecisionTreeRegressor(random_state=1)
-    # Fit Model
-    iowa_model.fit(train_X, train_y)
-    # Make validation predictions and calculate mean absolute error
-    val_predictions = iowa_model.predict(val_X)
-    val_mae = mean_absolute_error(val_predictions, val_y)
-    dict_val_maes["method"].append("DecisionTreeRegressor")
-    dict_val_maes["Val MAE"].append(val_mae)
-
-    # Using best value for max_leaf_nodes
-    iowa_model = DecisionTreeRegressor(max_leaf_nodes=100, random_state=1)
-    iowa_model.fit(train_X, train_y)
-    val_predictions = iowa_model.predict(val_X)
-    val_mae = mean_absolute_error(val_predictions, val_y)
-    dict_val_maes["method"].append("DecisionTreeRegressor with max leaf nodes")
-    dict_val_maes["Val MAE"].append(val_mae)
-
-    # Define the model. Set random_state to 1
-    rf_model = RandomForestRegressor(random_state=1)
-    rf_model.fit(train_X, train_y)
-    rf_val_predictions = rf_model.predict(val_X)
-    rf_val_mae = mean_absolute_error(rf_val_predictions, val_y)
-    dict_val_maes["method"].append("RandomForestRegressor")
-    dict_val_maes["Val MAE"].append(rf_val_mae)
-
-    val_maes = pd.DataFrame(dict_val_maes).set_index("method")
-    st.write(val_maes)
-    st.text("(Test what happens when removing TotRmsAbvGrd)")
-
-
-def sinus():
-    """A simple example of regression on the sinus function on the interval [0,5].
-
-    Some points are perturbed with noise after applying
-    the sinus function to them.
-    The user decides the number of noisy points with a slider,
-    and the maximum order for the polynomial regression. They
-    also decide if they want to fit two regression trees (with
-    `max_depth=2` and `max_depth=5`) in addition to the polynomial
-    regression. Then the fitted models are plotted along with
-    the training noisy data.
-
-    Returns
-    -------
-    None
-
-    """
-    noise = st.slider("Noise volume", 1, 10, 5, format="1 of each %d point(s)")
-    # Order of the polynom for the linear regression with polynom
-    order = st.slider(
-        "Choose the order of the polynom for the polynomial regression", 2, 20, 3
-    )
-    trees = st.checkbox("Show decision trees", True)
-
-    # Create a random dataset
-    rng = np.random.RandomState(1)
-    X = np.sort(5 * rng.rand(80, 1))
-    y = np.sin(X).ravel()
-    y[::noise] += 3 * (0.5 - rng.rand(y[::noise].size))
-    X2 = poly(X, order=order)
-
-    # Fit regression models
-    if trees:
-        regr_1 = DecisionTreeRegressor(max_depth=2, random_state=1)
-        regr_2 = DecisionTreeRegressor(max_depth=5, random_state=1)
-    regr_3 = LinearRegression()
-    if trees:
-        regr_1.fit(X, y)
-        regr_2.fit(X, y)
-    regr_3.fit(X2, y)
-
-    # Predict
-    X_test = np.arange(0.0, 5.0, 0.01)[:, np.newaxis]
-    X2_test = poly(X_test, order=order)
-    if trees:
-        y_1 = regr_1.predict(X_test)
-        y_2 = regr_2.predict(X_test)
-    y_3 = regr_3.predict(X2_test)
-
-    # Plot the results
-    fig = plt.figure()
-    plt.scatter(X, y, s=20, edgecolor="black", c="darkorange", label="data")
-    if trees:
-        plt.plot(X_test, y_1, color="cornflowerblue", label="max_depth=2", linewidth=2)
-        plt.plot(X_test, y_2, color="yellowgreen", label="max_depth=5", linewidth=2)
-    plt.plot(X_test, y_3, color="red", label="polynom", linewidth=2)
-    plt.xlabel("data")
-    plt.ylabel("target")
-    if trees:
-        plt.title("Decision Trees and Polynomial Regression")
-    else:
-        plt.title("Polynomial Regression")
-    plt.xlim(-0.2, 5.2)
-    plt.ylim(-2.7, 2.7)
-    plt.legend()
-    st.pyplot(fig)
-
-
-def mnist():
-    """Selects randomly 6 images from the training MNIST dataset and displays them.
-
-    Returns
-    -------
-    None
-
-    """
-    train_data = MNIST("data", train=True, download=True, transform=ToTensor())
-    classes = list(range(10))
-    mnist_like_viz(train_data, classes)
-
+    - MLP page: comparison of normalization methods on FashionMNIST
+    - RNN page: comparison of BatchNorm and LayerNorm on IMDb sentiment analysis
+    """)
 
 def fashionmnist():
     """Training a simple MLP on the FashionMNIST dataset and displaying the metrics evolution during the training.
@@ -275,40 +66,99 @@ def fashionmnist():
     Inspired by https://pytorch.org/tutorials/beginner/basics/quickstart_tutorial.html.
 
     """
-    st.header("A simple deep learning model applied on the FashionMNIST dataset")
+    st.title("MLP Training on FashionMNIST with Normalization Techniques")
+    
+    st.info("This section allows you to compare BatchNorm and no BatchNorm simultaneously across multiple learning rates.")
 
     hidden_layers = st.slider("Choose the number of hidden layers", 1, 5, 2)
 
     dropout_rate = st.slider("Choose the dropout rate", 0.0, 0.9, 0.0, 0.1)
 
-    use_batchnorm = st.checkbox("Use Batch Normalization", value=True) # ajout perso
 
+    compare_bn = st.checkbox("Compare BatchNorm vs no BatchNorm", value=True)
+    compare_lr = st.checkbox("Compare multiple learning rates", value=True)
+
+    if not compare_bn:
+        use_bn = st.checkbox("Use BatchNorm", value=True)
+        norm_type = "batchnorm" if use_bn else "none"
+    else:
+        norm_type = None
+
+
+
+    if not compare_lr:
+        lr = st.selectbox(
+            "Learning rate",
+            [1e-4, 1e-3, 1e-2],
+            index=1
+        )
+    else:
+        st.write("Comparing learning rates: 1e-4, 1e-3, 1e-2")
+        lr = None
+
+
+    epochs = st.slider("Choose the number of epochs to train", 1, 50, 10) 
     
-    epochs = st.slider("Choose the number of epochs to train", 1, 1000, 50)
-    st.write(
-        "Note that the epoch parameter is only relevant for training a new model, so if there is no already saved model for this config"
-    )
+    if st.button("Delete saved model"):
+        if compare_bn and compare_lr:
+            for norm_i in ["none", "batchnorm"]:
+                for lr_i in [1e-4, 1e-3, 1e-2]:
+                    path_weights, path_metrics = paths(
+                        hidden_layers,
+                        dropout_rate,
+                        norm_type=norm_i,
+                        epochs=epochs,
+                        lr=lr_i,
+                    )
+                    try:
+                        os.remove(path_weights)
+                        os.remove(path_metrics)
+                    except FileNotFoundError:
+                        pass
 
-    if st.button("Delete saved model and train again"):
-        path_weights, path_metrics = paths(hidden_layers, dropout_rate, use_batchnorm) # ajout use_batchnorm
-        try:
-            os.remove(path_weights)
-            os.remove(path_metrics)
-        except FileNotFoundError:
-            pass
+        elif compare_bn and not compare_lr:
+            for norm_i in ["none", "batchnorm"]:
+                path_weights, path_metrics = paths(
+                    hidden_layers,
+                    dropout_rate,
+                    norm_type=norm_i,
+                    epochs=epochs,
+                    lr=lr,
+                )
+                try:
+                    os.remove(path_weights)
+                    os.remove(path_metrics)
+                except FileNotFoundError:
+                    pass
 
-    train_dataloader, test_dataloader, _, test_data = dl.get_FashionMNIST_datasets(
-        64, only_loader=False
-    )
-    model = dl.get_and_train_model(
-        train_dataloader,
-        test_dataloader,
-        hidden_layers=hidden_layers,
-        dropout_rate=dropout_rate,
-        use_batchnorm=use_batchnorm, # ajout 
-        epochs=epochs,
-        mode="st",
-    )
+        elif not compare_bn and compare_lr:
+            for lr_i in [1e-4, 1e-3, 1e-2]:
+                path_weights, path_metrics = paths(
+                    hidden_layers,
+                    dropout_rate,
+                    norm_type=norm_type,
+                    epochs=epochs,
+                    lr=lr_i,
+                )
+                try:
+                    os.remove(path_weights)
+                    os.remove(path_metrics)
+                except FileNotFoundError:
+                    pass
+
+        else:
+            path_weights, path_metrics = paths(
+                hidden_layers,
+                dropout_rate,
+                norm_type=norm_type,
+                epochs=epochs,
+                lr=lr,
+            )
+            try:
+                os.remove(path_weights)
+                os.remove(path_metrics)
+            except FileNotFoundError:
+                pass
 
     classes = [
         "T-shirt/top",
@@ -323,9 +173,217 @@ def fashionmnist():
         "Ankle boot",
     ]
 
-    training_curves(model, "st")
-    mnist_like_viz(test_data, classes, model)
+    
+    train_clicked = st.button("Train / Load model") 
 
+    if train_clicked:
+        st.session_state.stop_training = False
+
+    # If user didn't click train, do nothing
+    if not train_clicked:
+        st.stop()
+
+    train_dataloader, test_dataloader, _, test_data = dl.get_FashionMNIST_datasets(
+        64, only_loader=False
+    )
+
+    if not compare_bn and not compare_lr:
+    # One single model
+        with st.spinner("Training or loading model..."):
+            model = dl.get_and_train_model(
+                train_dataloader,
+                test_dataloader,
+                hidden_layers=hidden_layers,
+                dropout_rate=dropout_rate,
+                norm_type=norm_type,
+                lr=lr,
+                epochs=epochs,
+                mode="st",
+            )
+
+        training_curves(model, "st")
+        mnist_like_viz(test_data, classes, model)
+
+    elif not compare_bn and compare_lr:
+        # One normalization setting, compared across several learning rates
+        models = []
+        lr_list = [1e-4, 1e-3, 1e-2]
+
+        compare_bar = st.progress(0)
+        compare_status = st.empty()
+
+        for i, lr_i in enumerate(lr_list):
+            compare_status.write(
+                f"Training / loading model {i + 1}/{len(lr_list)} "
+                f"with learning rate = {lr_i}"
+            )
+
+            model_i = dl.get_and_train_model(
+                train_dataloader,
+                test_dataloader,
+                hidden_layers=hidden_layers,
+                dropout_rate=dropout_rate,
+                norm_type=norm_type,
+                lr=lr_i,
+                epochs=epochs,
+                mode="st",
+                progress_prefix=f"[lr={lr_i}] ",
+            )
+
+            models.append((f"lr={lr_i}", model_i))
+            compare_bar.progress((i + 1) / len(lr_list))
+
+        compare_status.write("All models loaded / trained.")
+        compare_training_curves(models, "st")
+
+    elif compare_bn and not compare_lr:
+        # Compare no BN vs BN for one fixed learning rate
+        models = []
+
+        compare_bar = st.progress(0)
+        compare_status = st.empty()
+
+        norm_list = [("No BatchNorm", "none"), ("BatchNorm", "batchnorm")]
+
+        for i, (label, norm_i) in enumerate(norm_list):
+            compare_status.write(
+                f"Training / loading model {i + 1}/{len(norm_list)} "
+                f"with normalization = {label}"
+            )
+
+            model_i = dl.get_and_train_model(
+                train_dataloader,
+                test_dataloader,
+                hidden_layers=hidden_layers,
+                dropout_rate=dropout_rate,
+                norm_type=norm_i,
+                lr=lr,
+                epochs=epochs,
+                mode="st",
+                progress_prefix=f"[{label}] ",
+            )
+
+            models.append((label, model_i))
+            compare_bar.progress((i + 1) / len(norm_list))
+
+        compare_status.write("All models loaded / trained.")
+        compare_training_curves(models, "st")
+
+    elif compare_bn and compare_lr:
+        # Compare learning rates separately for no BN and BN
+        lr_list = [1e-4, 1e-3, 1e-2]
+        total_models = 6
+        done = 0
+
+        compare_bar = st.progress(0)
+        compare_status = st.empty()
+
+        models_no_bn = []
+        models_bn = []
+
+        for lr_i in lr_list:
+            compare_status.write(f"Training / loading No BatchNorm model with lr = {lr_i}")
+
+            model_i = dl.get_and_train_model(
+                train_dataloader,
+                test_dataloader,
+                hidden_layers=hidden_layers,
+                dropout_rate=dropout_rate,
+                norm_type="none",
+                lr=lr_i,
+                epochs=epochs,
+                mode="st",
+                progress_prefix=f"[no BN, lr={lr_i}] ",
+            )
+
+            models_no_bn.append((f"lr={lr_i}", model_i))
+            done += 1
+            compare_bar.progress(done / total_models)
+
+        for lr_i in lr_list:
+            compare_status.write(f"Training / loading BatchNorm model with lr = {lr_i}")
+
+            model_i = dl.get_and_train_model(
+                train_dataloader,
+                test_dataloader,
+                hidden_layers=hidden_layers,
+                dropout_rate=dropout_rate,
+                norm_type="batchnorm",
+                lr=lr_i,
+                epochs=epochs,
+                mode="st",
+                progress_prefix=f"[BN, lr={lr_i}] ",
+            )
+
+            models_bn.append((f"lr={lr_i}", model_i))
+            done += 1
+            compare_bar.progress(done / total_models)
+
+        compare_status.write("All models loaded / trained.")
+
+        st.subheader("Without BatchNorm: effect of learning rate")
+        compare_training_curves(models_no_bn, "st")
+
+        st.subheader("With BatchNorm: effect of learning rate")
+        compare_training_curves(models_bn, "st")
+
+    
+def imdb_rnn_page():
+    st.title("RNN Sentiment Analysis with Normalization (IMDb)")
+    st.header("RNN sentiment analysis on IMDb")
+    
+    st.info("""
+            This page compares BatchNorm and LayerNorm in an RNN for sentiment analysis.
+
+            The normalization is applied to the final hidden state of the RNN.
+            You can observe that LayerNorm leads to better performance than BatchNorm in fewer steps.
+            """)
+    st.caption("LayerNorm is typically better suited for sequence models because it does not rely on batch statistics.")
+
+    embedding_dim = st.slider("Embedding dimension", 16, 128, 64, 16)
+    hidden_dim = st.slider("Hidden dimension", 32, 256, 128, 32)
+    dropout_rate = st.slider("Dropout rate", 0.0, 0.9, 0.0, 0.1)
+    lr = st.selectbox("Learning rate", [1e-4, 1e-3, 1e-2], index=1)
+    epochs = st.slider("Epochs", 1, 20, 5)
+    max_len = st.slider("Maximum sequence length", 50, 400, 200, 50)
+
+    train_size = st.slider("Train subset size", 500, 5000, 2000, 500)
+    test_size = st.slider("Test subset size", 200, 2000, 1000, 200)
+
+    train_clicked = st.button("Train / Load RNN models")
+    if not train_clicked:
+        st.stop()
+
+    train_dataloader, test_dataloader, _, _, vocab = dl.get_IMDB_datasets(
+        batch_size=64,
+        max_len=max_len,
+        train_size=train_size,
+        test_size=test_size,
+        only_loader=False,
+    )
+
+    models = []
+
+    for norm_type in ["batchnorm", "layernorm"]:
+        st.write(f"Training / loading model with {norm_type}")
+        model = dl.get_and_train_rnn_model(
+            train_dataloader,
+            test_dataloader,
+            vocab_size=len(vocab),
+            embedding_dim=embedding_dim,
+            hidden_dim=hidden_dim,
+            dropout_rate=dropout_rate,
+            norm_type=norm_type,
+            lr=lr,
+            epochs=epochs,
+            max_len=max_len,
+            train_size=train_size,
+            mode="st",
+            progress_prefix=f"[{norm_type}] ",
+        )
+        models.append((norm_type, model))
+
+    compare_training_curves(models, "st")
 
 if __name__ == "__main__":
     main()

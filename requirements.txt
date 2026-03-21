@@ -77,3 +77,4 @@ typing_extensions==4.12.2
 tzdata==2025.1
 urllib3==2.3.0
 virtualenv==20.29.1
+datasets
