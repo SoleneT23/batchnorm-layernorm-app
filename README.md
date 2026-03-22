@@ -50,9 +50,8 @@ If a review is longer than this value, it is truncated (only the first words are
 If a review is shorter, it is padded with special tokens so that all inputs have the same length.
 
 
-## Train subset size and Test subset size : 
+## Train subset size : 
 Train subset size controls how many training examples are used to train the RNN.
-Test subset size controls how many examples are used to evaluate its performance.
 Using smaller subsets makes training much faster. 
 
 # Retraining a model from scratch
