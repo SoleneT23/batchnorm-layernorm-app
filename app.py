@@ -7,7 +7,7 @@ different app modes.
 import os
 import streamlit as st
 from viz import mnist_like_viz, training_curves, compare_training_curves
-from utils import paths
+from utils import paths, paths_rnn
 import dl
 
 
@@ -22,18 +22,18 @@ def main():
     app_mode = st.sidebar.selectbox(
         "Choose the app mode",
         [
-            "Show instructions",
-            
+            "Show instructions",           
             "MLP and normalization",
             "RNN sentiment analysis",
         ],
-    )  # , "Show the source code"])
+    )  
     if app_mode == "Show instructions":
-        st.write("To continue select a mode in the selection box to the left.")
+        show_instructions()
     elif app_mode == "MLP and normalization":
         fashionmnist()
     elif app_mode == "RNN sentiment analysis":
         imdb_rnn_page()
+
 
 def show_instructions():
     st.title("Instructions")
@@ -69,13 +69,14 @@ def fashionmnist():
     st.title("MLP Training on FashionMNIST with Normalization Techniques")
     
     st.info("This section allows you to compare BatchNorm and no BatchNorm simultaneously across multiple learning rates.")
-
+    st.info("Pretrained models are automatically downloaded if not available locally."
+)
     hidden_layers = st.slider("Choose the number of hidden layers", 1, 5, 2)
 
     dropout_rate = st.slider("Choose the dropout rate", 0.0, 0.9, 0.0, 0.1)
 
-
     compare_bn = st.checkbox("Compare BatchNorm vs no BatchNorm", value=True)
+    
     compare_lr = st.checkbox("Compare multiple learning rates", value=True)
 
     if not compare_bn:
@@ -83,8 +84,6 @@ def fashionmnist():
         norm_type = "batchnorm" if use_bn else "none"
     else:
         norm_type = None
-
-
 
     if not compare_lr:
         lr = st.selectbox(
@@ -96,10 +95,10 @@ def fashionmnist():
         st.write("Comparing learning rates: 1e-4, 1e-3, 1e-2")
         lr = None
 
-
     epochs = st.slider("Choose the number of epochs to train", 1, 50, 10) 
-    
-    if st.button("Delete saved model"):
+    force_train = st.checkbox("Force retrain (ignore local and remote pretrained model)", value=False)
+    st.caption("This only deletes the local copy. The model can still be downloaded again.")
+    if st.button("Delete local copy (will be re-downloaded)"):
         if compare_bn and compare_lr:
             for norm_i in ["none", "batchnorm"]:
                 for lr_i in [1e-4, 1e-3, 1e-2]:
@@ -199,6 +198,7 @@ def fashionmnist():
                 lr=lr,
                 epochs=epochs,
                 mode="st",
+                force_train=force_train,
             )
 
         training_curves(model, "st")
@@ -228,6 +228,7 @@ def fashionmnist():
                 epochs=epochs,
                 mode="st",
                 progress_prefix=f"[lr={lr_i}] ",
+                force_train=force_train,
             )
 
             models.append((f"lr={lr_i}", model_i))
@@ -261,6 +262,7 @@ def fashionmnist():
                 epochs=epochs,
                 mode="st",
                 progress_prefix=f"[{label}] ",
+                force_train=force_train,
             )
 
             models.append((label, model_i))
@@ -294,6 +296,7 @@ def fashionmnist():
                 epochs=epochs,
                 mode="st",
                 progress_prefix=f"[no BN, lr={lr_i}] ",
+                force_train=force_train,
             )
 
             models_no_bn.append((f"lr={lr_i}", model_i))
@@ -313,6 +316,7 @@ def fashionmnist():
                 epochs=epochs,
                 mode="st",
                 progress_prefix=f"[BN, lr={lr_i}] ",
+                force_train=force_train,
             )
 
             models_bn.append((f"lr={lr_i}", model_i))
@@ -339,7 +343,8 @@ def imdb_rnn_page():
             You can observe that LayerNorm leads to better performance than BatchNorm in fewer steps.
             """)
     st.caption("LayerNorm is typically better suited for sequence models because it does not rely on batch statistics.")
-
+    st.info("Pretrained models are automatically downloaded if not available locally.")
+    
     embedding_dim = st.slider("Embedding dimension", 16, 128, 64, 16)
     hidden_dim = st.slider("Hidden dimension", 32, 256, 128, 32)
     dropout_rate = st.slider("Dropout rate", 0.0, 0.9, 0.0, 0.1)
@@ -349,6 +354,29 @@ def imdb_rnn_page():
 
     train_size = st.slider("Train subset size", 500, 5000, 2000, 500)
     test_size = st.slider("Test subset size", 200, 2000, 1000, 200)
+
+    force_train = st.checkbox("Force retrain (ignore local and remote pretrained model)", value=False)
+
+    st.caption("This only deletes the local copy. The model can still be downloaded again.")
+
+    if st.button("Delete local copy (will be re-downloaded)"):
+        for norm_type in ["batchnorm", "layernorm"]:
+            path_weights, path_metrics = paths_rnn(
+                embedding_dim=embedding_dim,
+                hidden_dim=hidden_dim,
+                num_layers=1,
+                dropout_rate=dropout_rate,
+                norm_type=norm_type,
+                epochs=epochs,
+                lr=lr,
+                max_len=max_len,
+                train_size=train_size,
+            )
+            try:
+                os.remove(path_weights)
+                os.remove(path_metrics)
+            except FileNotFoundError:
+                pass
 
     train_clicked = st.button("Train / Load RNN models")
     if not train_clicked:
@@ -380,6 +408,7 @@ def imdb_rnn_page():
             train_size=train_size,
             mode="st",
             progress_prefix=f"[{norm_type}] ",
+            force_train=force_train,
         )
         models.append((norm_type, model))
 

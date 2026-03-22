@@ -22,7 +22,9 @@ sandbox.py
 
 # Data files
 data
-saved_models
+saved_models/
+saved_models.zip
+*.zip
 # *.csv
 *.parquet
 yolov3*

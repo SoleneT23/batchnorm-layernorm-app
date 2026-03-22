@@ -42,38 +42,6 @@ One possible explanation is the choice of activation function.
 The paper uses sigmoid activations, which can easily lead to saturation and vanishing gradients, making training more sensitive to the learning rate. In contrast, our implementation uses ReLU activations, which do not have this issues.
 
 
-
-## Pretrained models
-
-This application relies on pretrained models to provide fast results.
-
-The model weights are not included in this repository due to their size.  
-Please download them from the following link and place the `saved_models/` folder at the root of the project:
-
-[Google Drive link](https://drive.google.com/file/d/1WrcDHHXVwf5guJ2RGfLU0CS9UH4H83ER/view?usp=sharing)
-
-If a `saved_models/` folder already exists, merge the downloaded files into it. If prompted, choose “Skip” or “Replace” (avoid “Keep Both”).
-
-You can then test the available models or train new ones directly in the app.
-
-### Instructions
-
-1. Download `saved_models.zip`
-2. Extract it
-3. Place the `saved_models/` folder at the root of the project
-4. If a `saved_models/` folder already exists, simply merge the downloaded files into it.
-This will allow you to keep both pretrained and newly trained models.
-
-
-### Available pretrained models
-
-The following configurations are available:
-
-
-
-Total: 18 pretrained models
-
-
 # "RNN Sentiment analysis" mode
 
 The RNN page compares Batch Normalization and Layer Normalization on an IMDb sentiment classification task. For a fixed architecture and training setup, both models are trained and their loss and accuracy curves are displayed on the same graphs.
@@ -91,12 +59,17 @@ Train subset size controls how many training examples are used to train the RNN.
 Test subset size controls how many examples are used to evaluate its performance.
 Using smaller subsets makes training much faster. 
 
+# Retraining a model from scratch
+
+1. Check the “Force retrain” option.
+2. Click “Delete local copy (will be re-downloaded)” to remove any existing local files.
+3. Click “Train / Load model”.
+
+The model will then be trained from scratch instead of being loaded or downloaded.
+
+
+
 ## Miscellaneous
-
-### pre-commit usage
-
-This repo uses 2 pre-commit hooks: black and flake8. Contributors should install pre-commit (`pip install pre-commit`) and then run `pre-commit install` to install the hooks. Update the hooks with `pre-commit autoupdate`.
-
 
 ### docstrings
 

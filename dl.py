@@ -17,7 +17,7 @@ import pandas as pd
 import streamlit as st
 
 from viz import training_curves
-from utils import paths, paths_rnn
+from utils import paths, paths_rnn, download_if_missing
 
 from collections import Counter
 import re
@@ -99,12 +99,10 @@ class FMNIST_MLP(nn.Module):
         The training metrics dataframe.
     """
 
-    def __init__(self, hidden_layers=2, dropout_rate=0.0,  norm_type="none"):
+    def __init__(self, hidden_layers=2, dropout_rate=0.0, norm_type="none"):
 
         super().__init__()
         self.flatten = nn.Flatten()
-
-
         def norm_layer():
             if norm_type == "batchnorm":
                 return nn.BatchNorm1d(512)
@@ -295,10 +293,11 @@ def get_and_train_model(
     hidden_layers=2,
     dropout_rate=0.0,
     norm_type="none", 
-    lr= 1e-3,
+    lr=1e-3,
     epochs=5,
     mode=None,
     progress_prefix="",
+    force_train=False,
 ):
     """Creates and trains a model on the given dataset.
 
@@ -342,15 +341,21 @@ def get_and_train_model(
 
     # Create the model
     model = FMNIST_MLP(hidden_layers, dropout_rate, norm_type=norm_type) 
-    path_weights, path_metrics = paths(hidden_layers, dropout_rate, norm_type=norm_type, lr= lr, epochs=epochs) 
+    path_weights, path_metrics = paths(
+    hidden_layers, dropout_rate, norm_type=norm_type, lr=lr, epochs=epochs
+)
 
+    if not force_train:
+        download_if_missing(path_weights)
+        download_if_missing(path_metrics)
+    
     # Load the weights if they already exist
-    if os.path.exists(path_weights):
+    if (not force_train) and os.path.exists(path_weights) and os.path.exists(path_metrics):
         if mode == "script":
             print("model already exists, let us just load it")
         elif mode == "st":
             st.write("Found a saved model with given config")
-        #model.load_state_dict(torch.load(path_weights))
+        
         state = torch.load(path_weights, weights_only=True, map_location=device) 
         model.load_state_dict(state) 
         metrics = pd.read_csv(path_metrics, index_col=0)
@@ -363,14 +368,17 @@ def get_and_train_model(
         st.text(model)
 
     # Train the model and save the weights if they don't exist
-    if not os.path.exists(path_weights):
+    if force_train or not os.path.exists(path_weights):
         if mode == "script":
             print("No existing model found")
         elif mode == "st":
-            st.write("Didn't find an existing model, training a new one")
+            if force_train:
+                st.write("Force retrain enabled: training a new model from scratch.")
+            else:
+                st.write("Loading model (from local cache or downloading if needed)...")
 
         loss_fn = nn.CrossEntropyLoss()
-        #optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+        # optimizer = torch.optim.SGD(model.parameters(), lr=lr)
         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
         epoch_progress_bar = None
@@ -433,7 +441,7 @@ def get_and_train_model(
                     f"test acc: {100 * test_acc:.1f}%"
                 )
             
-            if st.session_state.stop_training:
+            if mode == "st" and st.session_state.stop_training:
                 stopped_early = True
                 stop_message_placeholder.warning(
                     f"{progress_prefix}Stop requested. Training stops now that "
@@ -568,7 +576,30 @@ class IMDB_RNN(nn.Module):
 
 
 def train_step_binary(dataloader, model, loss_fn, optimizer, device, mode=None):
-    """Training step for binary classification."""
+    """Perform one training epoch for a binary classification model.
+
+    Parameters
+    ----------
+    dataloader : torch.utils.data.DataLoader
+        DataLoader providing training batches.
+    model : nn.Module
+        The model to train.
+    loss_fn : nn.modules._Loss
+        Loss function (BCEWithLogitsLoss).
+    optimizer : torch.optim.Optimizer
+        Optimizer used for training (SGD with momentum).
+    device : str
+        Device to use ("cpu" or "cuda").
+    mode : str, optional
+        "script" or "st" for Streamlit behavior.
+
+    Returns
+    -------
+    train_loss : float
+        Average loss over the epoch.
+    correct : float
+        Accuracy over the epoch (between 0 and 1).
+    """
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
     model.train()
@@ -577,7 +608,7 @@ def train_step_binary(dataloader, model, loss_fn, optimizer, device, mode=None):
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
 
-        logits = model(X)                    # (batch,)
+        logits = model(X)                    
         loss = loss_fn(logits, y)
 
         train_loss += loss.item()
@@ -604,7 +635,7 @@ def test_step_binary(dataloader, model, loss_fn, device, mode=None):
     model : nn.Module
         The binary classification model.
     loss_fn : nn.modules._Loss
-        Typically nn.BCEWithLogitsLoss().
+        Here nn.BCEWithLogitsLoss().
     device : str
         "cuda" or "cpu".
     mode : str, optional
@@ -663,6 +694,7 @@ def get_and_train_rnn_model(
     train_size=None,
     mode=None,
     progress_prefix="",
+    force_train=False,
 ):
     """Creates, trains, loads, and saves an RNN model for IMDb sentiment analysis.
 
@@ -719,19 +751,23 @@ def get_and_train_rnn_model(
     )
 
     path_weights, path_metrics = paths_rnn(
-        embedding_dim=embedding_dim,
-        hidden_dim=hidden_dim,
-        num_layers=num_layers,
-        dropout_rate=dropout_rate,
-        norm_type=norm_type,
-        epochs=epochs,
-        lr=lr,
-        max_len=max_len,
-        train_size=train_size,
-    )
+    embedding_dim=embedding_dim,
+    hidden_dim=hidden_dim,
+    num_layers=num_layers,
+    dropout_rate=dropout_rate,
+    norm_type=norm_type,
+    epochs=epochs,
+    lr=lr,
+    max_len=max_len,
+    train_size=train_size,
+)
+
+    if not force_train:
+        download_if_missing(path_weights)
+        download_if_missing(path_metrics)
 
     # Load if saved model exists
-    if os.path.exists(path_weights):
+    if (not force_train) and os.path.exists(path_weights) and os.path.exists(path_metrics):
         if mode == "script":
             print("RNN model already exists, loading it")
         elif mode == "st":
@@ -752,11 +788,14 @@ def get_and_train_rnn_model(
         st.text(model)
 
     # Train only if weights do not exist
-    if not os.path.exists(path_weights):
+    if force_train or not os.path.exists(path_weights):
         if mode == "script":
-            print("No existing RNN model found")
+            print("No existing model found")
         elif mode == "st":
-            st.write("Didn't find an existing RNN model, training a new one")
+            if force_train:
+                st.write("Force retrain enabled: training a new model from scratch.")
+            else:
+                st.write("Loading model (from local cache or downloading if needed)...")
 
         loss_fn = nn.BCEWithLogitsLoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
@@ -950,13 +989,9 @@ def get_IMDB_datasets(
         return train_dataloader, test_dataloader
     else:
         return train_dataloader, test_dataloader, train_dataset, test_dataset, vocab
-
-
-
+    
 if __name__ == "__main__":
-
     mode = "script"
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--epochs", type=int, default=5)
     parser.add_argument("--hidden", type=int, default=2)
