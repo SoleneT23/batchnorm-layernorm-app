@@ -11,7 +11,6 @@ venv.html
 
 # Python
 **/__pycache__
-sandbox.py
 
 # Jupyter Notebooks
 .ipynb_checkpoints
@@ -23,7 +22,6 @@ sandbox.py
 # Data files
 data
 saved_models/
-saved_models.zip
 *.zip
 # *.csv
 *.parquet

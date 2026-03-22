@@ -21,13 +21,14 @@ conda install -c conda-forge pyarrow datasets
 
 MLP Comparison Modes
 
-The MLP page allows users to explore the impact of normalization and regularization on a model trained on FashionMNIST. Three comparison modes are available:
+The MLP page allows users to explore the impact of normalization and hyperparameter tuning on a model trained on FashionMNIST. Three comparison modes are available:
 
-1. No comparison: Train a single model with chosen hyperparameters (number of layers, dropout rate, learning rate, and optional BatchNorm). Observe that the metrics are better when a BN layer is used.
+1. No comparison: Train a single model with chosen hyperparameters (number of layers, dropout rate, learning rate, number of epochs, and optional BatchNorm). Observe that the metrics are better when a BN layer is used.
 
 2. Compare learning rates: Fix the architecture and dropout rate, and compare several learning rates (e.g. 
-1e−4,1e-3,1e−2). This experiment was designed to illustrate that Batch Normalization can enable the use of higher learning rates. In our experiments, however, we observed a slightly different effect: BatchNorm did not necessarily allow strictly higher learning rates, but rather made training more robust to the choice of learning rate. In particular, all learning rates performed well with BatchNorm, whereas without BatchNorm the performance was more sensitive and only a narrower range of learning rates yielded good results.
-3. Compare dropout rates: Fix the architecture and learning rate, and compare several dropout values. While this experiment is intended to illustrate that Batch Normalization can reduce the need for strong dropout regularization, our results show a slightly different behavior. In our setting, the lowest dropout rate yields the best performance both with and without BatchNorm, suggesting that the model does not strongly benefit from dropout. However, we observe that with BatchNorm the model becomes less sensitive to the choice of dropout rate earlier during training, as the performance gap between different dropout values is smaller in the first epochs.
+1e−3,1e-2,1e−1). This experiment was designed to illustrate that Batch Normalization can enable the use of higher learning rates. In our experiments, however, we observed a different effect: BatchNorm did not necessarily allow strictly higher learning rates, but rather made training more robust to the choice of learning rate. In particular, all learning rates performed well with BatchNorm, whereas without BatchNorm the performance was more sensitive and only a narrower range of learning rates yielded good results.
+
+3. Compare dropout rates: Fix the architecture and learning rate, and compare several dropout values. While this experiment is intended to illustrate that Batch Normalization can reduce the need for strong dropout regularization, our results show a different behavior. In our setting, the lowest dropout rate yields the best performance both with and without BatchNorm, suggesting that the model does not strongly benefit from dropout. However, we observe that with BatchNorm the model becomes less sensitive to the choice of dropout rate earlier during training, as the performance gap between different dropout values is smaller in the first epochs.
 
 In all modes, users can choose to compare BatchNorm vs no BatchNorm, or focus on a single normalization setting.
 
