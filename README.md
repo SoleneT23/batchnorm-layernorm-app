@@ -16,7 +16,11 @@ conda install -c conda-forge pyarrow pytorch torchvision -y
 pip install -r requirements.txt
 streamlit run app.py
 ```
+### Notes
 
+- The first launch may take a few minutes (up to ~10 minutes), as dependencies are initialized.
+- For best compatibility, we recommend using Chrome or Firefox. Some features may not work properly in Safari.
+- When running the app, use the **Local URL** displayed in the terminal (e.g. `http://localhost:8501`).
 
 # Fashion-MNIST MLP
 
