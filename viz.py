@@ -57,25 +57,25 @@ def mnist_like_viz(data, classes, model=None):
 
 
 def training_curves(model, mode=None):
-    """Plots metrics evolution during the training of a FMNIST_MLP model.
+    """Plot training and test metrics over epochs.
 
-    Plots 2 figures that are the evolution
-    of, respectively, the losses (train and test) and accuracies (train and test)
-    with respect to the epoch.
+    This function displays two plots:
+    - training and test loss over epochs,
+    - training and test accuracy over epochs.
 
     Parameters
     ----------
-    model: dl.FMNIST_MLP
-    mode: str
-        Either `"script"` if the module is used as a script,
-        or `"st"` if used in the stramlit app. This governs
-        the kind of outputs produced (prints, figures).
+    model : nn.Module
+        Model containing a `metrics` DataFrame with columns
+        ["train_loss", "train_acc", "test_loss", "test_acc"].
+    mode : str, optional
+        Either "script" for console execution (matplotlib display)
+        or "st" for Streamlit display.
 
     Returns
     -------
     None
     """
-
     fig = plt.figure()
     fig.set_figheight(10)
     padding = 2
@@ -139,4 +139,3 @@ def compare_training_curves(models, mode=None):
         plt.show()
     elif mode == "st":
         st.pyplot(fig)
-

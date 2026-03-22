@@ -19,27 +19,17 @@ conda install -c conda-forge pyarrow datasets
 
 # Fashion-MNIST MLP
 
-"MLP and normalization" trains (or use trained weights if available) a simple artificial neuron network on the Fashion MNIST datatset, displays the architecture, displays the curves of train and test loss and train and test accuracy. The user can select the number of hidden layers (it is a simple MLP), the level of dropout, the number of epochs, whether to add a Batch Normalization layer or not, and can compare different
-learning rates.
-If trained weights for the same combination of hyperparameters are found, they are used. If not, a model is trained and then the weights and metrics are saved. In the former case, a button allows the user to delete the trained weights and metrics and start a new training.
+MLP Comparison Modes
 
+The MLP page allows users to explore the impact of normalization and regularization on a model trained on FashionMNIST. Three comparison modes are available:
 
-## Effect of Batch Normalization
+1. No comparison: Train a single model with chosen hyperparameters (number of layers, dropout rate, learning rate, and optional BatchNorm). Observe that the metrics are better when a BN layer is used.
 
-We compare the test loss and test accuracy with and without Batch Normalization (BN). 
-We observe that the metrics are generally better when a BN layer is used.
+2. Compare learning rates: Fix the architecture and dropout rate, and compare several learning rates (e.g. 
+1e−4,1e-3,1e−2). This experiment was designed to illustrate that Batch Normalization can enable the use of higher learning rates. In our experiments, however, we observed a slightly different effect: BatchNorm did not necessarily allow strictly higher learning rates, but rather made training more robust to the choice of learning rate. In particular, all learning rates performed well with BatchNorm, whereas without BatchNorm the performance was more sensitive and only a narrower range of learning rates yielded good results.
+3. Compare dropout rates: Fix the architecture and learning rate, and compare several dropout values. While this experiment is intended to illustrate that Batch Normalization can reduce the need for strong dropout regularization, our results show a slightly different behavior. In our setting, the lowest dropout rate yields the best performance both with and without BatchNorm, suggesting that the model does not strongly benefit from dropout. However, we observe that with BatchNorm the model becomes less sensitive to the choice of dropout rate earlier during training, as the performance gap between different dropout values is smaller in the first epochs.
 
-## Effect of Learning Rate with and without Batch Normalization
-
-We compare the impact of the learning rate on model performance, both with and without Batch Normalization.
-
-In the paper *Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift* [Ioffe & Szegedy, 2015], the authors show that Batch Normalization allows the use of higher learning rates. 
-
-However, in our experiments on FashionMNIST, we observe a different behavior:
-the model without BN performs better when the learning rate increases, while the model with BN performs better with a smaller learning rate.
-
-One possible explanation is the choice of activation function.
-The paper uses sigmoid activations, which can easily lead to saturation and vanishing gradients, making training more sensitive to the learning rate. In contrast, our implementation uses ReLU activations, which do not have this issues.
+In all modes, users can choose to compare BatchNorm vs no BatchNorm, or focus on a single normalization setting.
 
 
 # "RNN Sentiment analysis" mode

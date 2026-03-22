@@ -18,7 +18,7 @@ def main():
     -------
     None
     """
-    
+        
     app_mode = st.sidebar.selectbox(
         "Choose the app mode",
         [
@@ -41,22 +41,26 @@ def show_instructions():
     st.write("""
     This app allows you to explore normalization techniques in deep learning.
 
-    - MLP page: comparison of normalization methods on FashionMNIST
+    - MLP page: comparison of dropout rates and learning rates with and without BatchNorm on FashionMNIST
     - RNN page: comparison of BatchNorm and LayerNorm on IMDb sentiment analysis
     """)
 
 def fashionmnist():
-    """Training a simple MLP on the FashionMNIST dataset and displaying the metrics evolution during the training.
+    """Streamlit page for training and visualizing an MLP on FashionMNIST.
 
-    The user can decide the number of hidden layers of the MLP. They can also choose the number of epochs
-    for training. Once a model with given hyperparameters is trained, it is saved and used
-    again the next times without new training, unless the user clicks the button to delete
-    the saved model and train again. The MLP architecture is displayed.
-    Then 2 figures that are the evolution
-    of, respectively, the losses (train and test) and accuracies (train and test)
-    with respect to the epoch, are displayed. Finally 6 random images of the test dataset are
-    displayed, along with their ground truth and predicted labels.
+    This function builds an interactive interface where the user can:
+    - choose the number of hidden layers, dropout rate, and learning rate,
+    - optionally compare normalization methods (BatchNorm vs no BatchNorm),
+    - train a model or load a previously saved one.
 
+    Trained models are cached locally and reused in subsequent runs unless the user
+    explicitly deletes them or forces retraining.
+
+    The function displays:
+    - the model architecture,
+    - training and test loss curves,
+    - training and test accuracy curves.
+    
     Returns
     -------
     None
@@ -66,24 +70,35 @@ def fashionmnist():
     Inspired by https://pytorch.org/tutorials/beginner/basics/quickstart_tutorial.html.
 
     """
-    st.title("MLP Training on FashionMNIST with Normalization Techniques")
+    st.title("MLP Training on FashionMNIST with Batch Normalization")
+        
+    st.info("This section allows you to compare the effect of BatchNorm, learning rate, and dropout on an MLP trained on FashionMNIST.")
     
-    st.info("This section allows you to compare BatchNorm and no BatchNorm simultaneously across multiple learning rates.")
-    st.info("Pretrained models are automatically downloaded if not available locally."
-)
+    st.caption("Use one comparison mode at a time to keep the experiment easy to interpret.")
+    
+    st.info("Pretrained models are automatically downloaded if not available locally.")
+    
     hidden_layers = st.slider("Choose the number of hidden layers", 1, 5, 2)
 
-    dropout_rate = st.slider("Choose the dropout rate", 0.0, 0.9, 0.0, 0.1)
-
     compare_bn = st.checkbox("Compare BatchNorm vs no BatchNorm", value=True)
-    
-    compare_lr = st.checkbox("Compare multiple learning rates", value=True)
 
-    if not compare_bn:
-        use_bn = st.checkbox("Use BatchNorm", value=True)
-        norm_type = "batchnorm" if use_bn else "none"
+    comparison_mode = st.radio(
+        "Comparison mode",
+        [
+            "None",
+            "Compare learning rates",
+            "Compare dropout rates",
+        ],
+    )
+
+    compare_lr = comparison_mode == "Compare learning rates"
+    compare_dropout = comparison_mode == "Compare dropout rates"
+    
+    if not compare_dropout:
+        dropout_rate = st.slider("Choose the dropout rate", 0.0, 0.9, 0.0, 0.1)
     else:
-        norm_type = None
+        st.write("Comparing dropout rates: 0.0, 0.1, 0.3, 0.5")
+        dropout_rate = None
 
     if not compare_lr:
         lr = st.selectbox(
@@ -92,19 +107,46 @@ def fashionmnist():
             index=1
         )
     else:
-        st.write("Comparing learning rates: 1e-4, 1e-3, 1e-2")
+        st.write("Comparing learning rates: 1e-3, 1e-2, 1e-1")
         lr = None
 
-    epochs = st.slider("Choose the number of epochs to train", 1, 50, 10) 
+    if not compare_bn:
+        use_bn = st.checkbox("Use BatchNorm", value=True)
+        norm_type = "batchnorm" if use_bn else "none"
+    else:
+        norm_type = None
+    
+    epochs = st.slider("Choose the number of epochs to train", 1, 50, 10)
+     
     force_train = st.checkbox("Force retrain (ignore local and remote pretrained model)", value=False)
     st.caption("This only deletes the local copy. The model can still be downloaded again.")
     if st.button("Delete local copy (will be re-downloaded)"):
-        if compare_bn and compare_lr:
-            for norm_i in ["none", "batchnorm"]:
-                for lr_i in [1e-4, 1e-3, 1e-2]:
+
+        # Learning rates to delete
+        if compare_lr:
+            lr_values = [1e-4, 1e-3, 1e-2]
+        else:
+            lr_values = [lr]
+
+        # Dropout rates to delete
+        if compare_dropout:
+            dropout_values = [0.0, 0.1, 0.3, 0.5]
+        else:
+            dropout_values = [dropout_rate]
+
+        # Normalization types to delete
+        if compare_bn:
+            norm_values = ["none", "batchnorm"]
+        else:
+            norm_values = [norm_type]
+
+        # Loop over all combinations
+        for norm_i in norm_values:
+            for lr_i in lr_values:
+                for dropout_i in dropout_values:
                     path_weights, path_metrics = paths(
                         hidden_layers,
-                        dropout_rate,
+                        dropout_i,
                         norm_type=norm_i,
                         epochs=epochs,
                         lr=lr_i,
@@ -114,51 +156,6 @@ def fashionmnist():
                         os.remove(path_metrics)
                     except FileNotFoundError:
                         pass
-
-        elif compare_bn and not compare_lr:
-            for norm_i in ["none", "batchnorm"]:
-                path_weights, path_metrics = paths(
-                    hidden_layers,
-                    dropout_rate,
-                    norm_type=norm_i,
-                    epochs=epochs,
-                    lr=lr,
-                )
-                try:
-                    os.remove(path_weights)
-                    os.remove(path_metrics)
-                except FileNotFoundError:
-                    pass
-
-        elif not compare_bn and compare_lr:
-            for lr_i in [1e-4, 1e-3, 1e-2]:
-                path_weights, path_metrics = paths(
-                    hidden_layers,
-                    dropout_rate,
-                    norm_type=norm_type,
-                    epochs=epochs,
-                    lr=lr_i,
-                )
-                try:
-                    os.remove(path_weights)
-                    os.remove(path_metrics)
-                except FileNotFoundError:
-                    pass
-
-        else:
-            path_weights, path_metrics = paths(
-                hidden_layers,
-                dropout_rate,
-                norm_type=norm_type,
-                epochs=epochs,
-                lr=lr,
-            )
-            try:
-                os.remove(path_weights)
-                os.remove(path_metrics)
-            except FileNotFoundError:
-                pass
-
     classes = [
         "T-shirt/top",
         "Trouser",
@@ -172,7 +169,6 @@ def fashionmnist():
         "Ankle boot",
     ]
 
-    
     train_clicked = st.button("Train / Load model") 
 
     if train_clicked:
@@ -186,8 +182,7 @@ def fashionmnist():
         64, only_loader=False
     )
 
-    if not compare_bn and not compare_lr:
-    # One single model
+    if not compare_bn and not compare_lr and not compare_dropout:
         with st.spinner("Training or loading model..."):
             model = dl.get_and_train_model(
                 train_dataloader,
@@ -207,7 +202,7 @@ def fashionmnist():
     elif not compare_bn and compare_lr:
         # One normalization setting, compared across several learning rates
         models = []
-        lr_list = [1e-4, 1e-3, 1e-2]
+        lr_list = [1e-3, 1e-2, 1e-1]
 
         compare_bar = st.progress(0)
         compare_status = st.empty()
@@ -237,8 +232,41 @@ def fashionmnist():
         compare_status.write("All models loaded / trained.")
         compare_training_curves(models, "st")
 
-    elif compare_bn and not compare_lr:
-        # Compare no BN vs BN for one fixed learning rate
+    elif not compare_bn and compare_dropout:
+        # One normalization setting, compared across several dropout rates
+        models = []
+        dropout_list = [0.0, 0.1, 0.3, 0.5]
+
+        compare_bar = st.progress(0)
+        compare_status = st.empty()
+
+        for i, dropout_i in enumerate(dropout_list):
+            compare_status.write(
+                f"Training / loading model {i + 1}/{len(dropout_list)} "
+                f"with dropout rate = {dropout_i}"
+            )
+
+            model_i = dl.get_and_train_model(
+                train_dataloader,
+                test_dataloader,
+                hidden_layers=hidden_layers,
+                dropout_rate=dropout_i,
+                norm_type=norm_type,
+                lr=lr,
+                epochs=epochs,
+                mode="st",
+                progress_prefix=f"[dropout={dropout_i}] ",
+                force_train=force_train,
+            )
+
+            models.append((f"dropout={dropout_i}", model_i))
+            compare_bar.progress((i + 1) / len(dropout_list))
+
+        compare_status.write("All models loaded / trained.")
+        compare_training_curves(models, "st")
+
+    elif compare_bn and not compare_lr and not compare_dropout:
+        # Compare no BN vs BN for one fixed learning rate and one fixed dropout
         models = []
 
         compare_bar = st.progress(0)
@@ -273,7 +301,7 @@ def fashionmnist():
 
     elif compare_bn and compare_lr:
         # Compare learning rates separately for no BN and BN
-        lr_list = [1e-4, 1e-3, 1e-2]
+        lr_list = [1e-3, 1e-2, 1e-1]
         total_models = 6
         done = 0
 
@@ -331,11 +359,101 @@ def fashionmnist():
         st.subheader("With BatchNorm: effect of learning rate")
         compare_training_curves(models_bn, "st")
 
+    elif compare_bn and compare_dropout:
+        # Compare dropout rates separately for no BN and BN
+        dropout_list = [0.0, 0.1, 0.3, 0.5]
+        total_models = 8
+        done = 0
+
+        compare_bar = st.progress(0)
+        compare_status = st.empty()
+
+        models_no_bn = []
+        models_bn = []
+
+        for dropout_i in dropout_list:
+            compare_status.write(
+                f"Training / loading No BatchNorm model with dropout = {dropout_i}"
+            )
+
+            model_i = dl.get_and_train_model(
+                train_dataloader,
+                test_dataloader,
+                hidden_layers=hidden_layers,
+                dropout_rate=dropout_i,
+                norm_type="none",
+                lr=lr,
+                epochs=epochs,
+                mode="st",
+                progress_prefix=f"[no BN, dropout={dropout_i}] ",
+                force_train=force_train,
+            )
+
+            models_no_bn.append((f"dropout={dropout_i}", model_i))
+            done += 1
+            compare_bar.progress(done / total_models)
+
+        for dropout_i in dropout_list:
+            compare_status.write(
+                f"Training / loading BatchNorm model with dropout = {dropout_i}"
+            )
+
+            model_i = dl.get_and_train_model(
+                train_dataloader,
+                test_dataloader,
+                hidden_layers=hidden_layers,
+                dropout_rate=dropout_i,
+                norm_type="batchnorm",
+                lr=lr,
+                epochs=epochs,
+                mode="st",
+                progress_prefix=f"[BN, dropout={dropout_i}] ",
+                force_train=force_train,
+            )
+
+            models_bn.append((f"dropout={dropout_i}", model_i))
+            done += 1
+            compare_bar.progress(done / total_models)
+
+        compare_status.write("All models loaded / trained.")
+
+        st.subheader("Without BatchNorm: effect of dropout rate")
+        compare_training_curves(models_no_bn, "st")
+
+        st.subheader("With BatchNorm: effect of dropout rate")
+        compare_training_curves(models_bn, "st")    
+
     
 def imdb_rnn_page():
+    """Streamlit page for training and comparing RNN models on IMDb sentiment analysis.
+
+    This function builds an interactive interface where the user can:
+    - choose model hyperparameters (embedding size, hidden dimension, dropout, learning rate),
+    - control sequence length and dataset size,
+    - train or load pretrained RNN models.
+
+    Two normalization strategies are compared:
+    - Batch Normalization
+    - Layer Normalization
+
+    The normalization is applied to the final hidden state of the RNN.
+    This allows users to observe that LayerNorm typically leads to more stable
+    and faster convergence than BatchNorm in sequence models.
+
+    Pretrained models are automatically downloaded if not available locally.
+    The user can also delete local copies or force retraining.
+
+    The function displays:
+    - training and test loss curves,
+    - training and test accuracy curves,
+    - a comparison between BatchNorm and LayerNorm performance.
+
+    Returns
+    -------
+    None
+    """
     st.title("RNN Sentiment Analysis with Normalization (IMDb)")
-    st.header("RNN sentiment analysis on IMDb")
-    
+    st.header("RNN sentiment analysis on IMDb")    
     st.info("""
             This page compares BatchNorm and LayerNorm in an RNN for sentiment analysis.
 
@@ -413,6 +531,7 @@ def imdb_rnn_page():
         models.append((norm_type, model))
 
     compare_training_curves(models, "st")
+
 
 if __name__ == "__main__":
     main()

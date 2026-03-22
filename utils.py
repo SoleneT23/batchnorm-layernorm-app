@@ -3,9 +3,11 @@
 from pathlib import Path
 import requests
 
+
 def ensure_saved_models_dir(saved_models_dir):
     """Create saved_models directory if it does not exist."""
     Path(saved_models_dir).mkdir(parents=True, exist_ok=True)
+
     
 def download_file(url, destination, chunk_size=8192):
     """Download a file from a URL to a local destination."""
@@ -16,8 +18,10 @@ def download_file(url, destination, chunk_size=8192):
         for chunk in response.iter_content(chunk_size=chunk_size):
             if chunk:
                 f.write(chunk)
+
                 
 BASE_URL = "https://github.com/SoleneT23/methodes-ia/releases/download/v1/"
+
 
 def download_if_missing(path):
     """
@@ -39,7 +43,6 @@ def download_if_missing(path):
         raise FileNotFoundError(
             f"File not found locally and not available online:\n{url}"
         )
-
 
 
 def paths(hidden_layers=2, dropout_rate=0.0, norm_type="none", lr=None, epochs=None):
@@ -97,6 +100,39 @@ def paths_rnn(
     max_len=200,
     train_size=2000,
 ):
+    """Generate file paths for saving RNN model weights and metrics.
+
+    The file names are constructed from the model hyperparameters so that
+    each configuration corresponds to a unique set of saved files.
+
+    Parameters
+    ----------
+    embedding_dim : int, default=64
+        Embedding dimension.
+    hidden_dim : int, default=128
+        Hidden dimension of the RNN.
+    num_layers : int, default=1
+        Number of recurrent layers.
+    dropout_rate : float, default=0.0
+        Dropout rate.
+    norm_type : str, default="none"
+        Normalization type ("none", "batchnorm", "layernorm").
+    epochs : int, optional
+        Number of training epochs (included in filename if provided).
+    lr : float, optional
+        Learning rate (included in filename if provided).
+    max_len : int, default=200
+        Maximum sequence length used in preprocessing.
+    train_size : int, default=2000
+        Size of the training subset.
+
+    Returns
+    -------
+    path_weights : str
+        File path for the model weights (.pth).
+    path_metrics : str
+        File path for the training metrics (.csv).
+    """
     base_name = (
         "saved_models/imdb_rnn"
         + f"_emb_{embedding_dim}"

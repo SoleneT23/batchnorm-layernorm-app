@@ -45,9 +45,9 @@ def get_FashionMNIST_datasets(batch_size=64, only_loader=True):
         The DataLoader of the training data.
     test_dataloader: torch.utils.data.DataLoader
         The DataLoader of the test data.
-    training_data: torchvision.datasets.mnist.FashionMNIST
+    training_data: torchvision.datasets.FashionMNIST
         The training data, only returned if `only_loader==False`.
-    test_data: torchvision.datasets.mnist.FashionMNIST
+    test_data: torchvision.datasets.FashionMNIST
         The test data, only returned if `only_loader==False`.
 
     """
@@ -77,7 +77,7 @@ def get_FashionMNIST_datasets(batch_size=64, only_loader=True):
         return train_dataloader, test_dataloader, training_data, test_data
 
 
-# Define model
+
 class FMNIST_MLP(nn.Module):
     """The MLP model we train on the FashionMNIST dataset.
 
@@ -87,22 +87,26 @@ class FMNIST_MLP(nn.Module):
         The number of hidden fully connected layers.
     dropout_rate: float, default=0
         The dropout rate.
+    norm_type : str, default="none"
+        Type of normalization applied after each hidden linear layer.
+        Must be one of {"none", "batchnorm", "layernorm"}.
 
     Attributes
     ----------
     flatten: nn.Flatten
         A flatten layer.
-    linear_relu_stack: nn.Sequential
-        A stack of liner layers with ReLU
-        activations.
-    metrics: pd.DataFrame
-        The training metrics dataframe.
+    network : nn.Sequential
+        Sequential stack of linear, normalization, sigmoid, and dropout
+        layers, followed by a final linear output layer.
+    metrics : pd.DataFrame
+        DataFrame storing training and test metrics across epochs.
     """
 
     def __init__(self, hidden_layers=2, dropout_rate=0.0, norm_type="none"):
 
         super().__init__()
         self.flatten = nn.Flatten()
+        
         def norm_layer():
             if norm_type == "batchnorm":
                 return nn.BatchNorm1d(512)
@@ -115,13 +119,13 @@ class FMNIST_MLP(nn.Module):
         for _ in range(hidden_layers - 1):
             list_hidden.append(nn.Linear(512, 512))
             list_hidden.append(norm_layer())
-            list_hidden.append(nn.ReLU())
+            list_hidden.append(nn.Sigmoid())
             list_hidden.append(nn.Dropout(dropout_rate))
 
-        self.linear_relu_stack = nn.Sequential(
+        self.network = nn.Sequential(
             nn.Linear(28 * 28, 512),
             norm_layer(),
-            nn.ReLU(),
+            nn.Sigmoid(),
             nn.Dropout(dropout_rate),
             *list_hidden,
             nn.Linear(512, 10),
@@ -144,7 +148,7 @@ class FMNIST_MLP(nn.Module):
             The unnormalized logits, of shape `(batch_size, 10)`.
         """
         x = self.flatten(x)
-        logits = self.linear_relu_stack(x)
+        logits = self.network(x)
         return logits
 
     def set_metrics(self, df):
@@ -185,7 +189,7 @@ class FMNIST_MLP(nn.Module):
 def train_step(dataloader, model, loss_fn, optimizer, device, mode=None):
     """The training step for one epoch.
 
-    Arguments
+    Parameters
     ---------
     dataloader: torch.utils.data.DataLoader
         The training DataLoader.
@@ -196,21 +200,18 @@ def train_step(dataloader, model, loss_fn, optimizer, device, mode=None):
     optimizer: torch.optim.optimizer.Optimizer
         The optimizer.
     device: str
-        The device to use, `"gpu"` or `"cpu"`.
+        Device used for computation ("cuda" or "cpu").
     mode: str
         Either `"script"` if the module is used as a script,
-        or `"st"` if used in the stramlit app. This governs
+        or `"st"` if used in the streamlit app. This governs
         the kind of outputs produced (prints, figures).
 
     Returns
     -------
     train_loss: float
-        The averaged loss on all the batches,
-        which will be added to the metrics dataframe.
+        The averaged loss on all the batches.
     correct: float
-        The accuracy of all the predictions on the epoch,
-        which will be added to the metrics dataframe.
-
+        Classification accuracy over the epoch (between 0 and 1).
     """
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
@@ -243,8 +244,8 @@ def train_step(dataloader, model, loss_fn, optimizer, device, mode=None):
 def test_step(dataloader, model, loss_fn, device, mode=None):
     """The evaluation step after one epoch.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     dataloader: torch.utils.data.DataLoader
         The test DataLoader.
     model: nn.Module
@@ -252,20 +253,18 @@ def test_step(dataloader, model, loss_fn, device, mode=None):
     loss_fn: nn.modules._Loss
         The loss function.
     device: str
-        The device to use, `"gpu"` or `"cpu"`.
+        The device to use, "cuda" or "cpu"
     mode: str
         Either `"script"` if the module is used as a script,
-        or `"st"` if used in the stramlit app. This governs
+        or `"st"` if used in the streamlit app. This governs
         the kind of outputs produced (prints, figures).
 
     Returns
     -------
     test_loss: float
-        The averaged loss on all the batches,
-        which will be added to the metrics dataframe.
+        The averaged loss on all the batches.
     correct: float
-        The accuracy of all the predictions on all the batches,
-        which will be added to the metrics dataframe.
+        Classification accuracy over the dataset (between 0 and 1).
 
     """
     size = len(dataloader.dataset)
@@ -299,37 +298,44 @@ def get_and_train_model(
     progress_prefix="",
     force_train=False,
 ):
-    """Creates and trains a model on the given dataset.
+    """Create, load, and train an MLP model on FashionMNIST.
 
-    Doesn't train if saved weights are found for the given hyperparameters
-    (except the number of epochs). The MLP architecture is displayed.
+    This function builds an ``FMNIST_MLP`` model with the given hyperparameters.
+    If matching saved weights and metrics are found locally or online, they are
+    loaded instead of retraining the model. Otherwise, the model is trained from
+    scratch and its weights and metrics are saved for later reuse.
 
     Parameters
     ----------
-    train_dataloader: torch.utils.data.DataLoader
-        The DataLoader of the training data.
-    test_dataloader: torch.utils.data.DataLoader
-        The DataLoader of the test data.
-    hidden_layers: int, default=2
-        The number of hidden fully connected layers.
-    dropout_rate: float, default=0
-        The dropout rate.
-    norm_type: str, default="none"
-        The type of normalization applied after each hidden layer.
+    train_dataloader : torch.utils.data.DataLoader
+        DataLoader for the training dataset.
+    test_dataloader : torch.utils.data.DataLoader
+        DataLoader for the test dataset.
+    hidden_layers : int, default=2
+        Number of fully connected hidden layers.
+    dropout_rate : float, default=0.0
+        Dropout rate applied after each hidden activation.
+    norm_type : str, default="none"
+        Type of normalization applied after each hidden layer.
         Must be one of {"none", "batchnorm", "layernorm"}.
-    lr: float, default=1e-3
-        The learning rate used by the SGD optimizer.
-    epochs: int, default=5
-        The number of epochs used for training.
-    mode: str
-        Either `"script"` if the module is used as a script,
-        or `"st"` if used in the stramlit app. This governs
-        the kind of outputs produced (prints, figures).
+    lr : float, default=1e-3
+        Learning rate used by the SGD optimizer.
+    epochs : int, default=5
+        Number of training epochs.
+    mode : str, optional
+        Either "script" if the module is used as a script,
+        or "st" if used in the Streamlit app. This controls
+        the type of outputs produced (prints or UI elements).
+    progress_prefix : str, default=""
+        Prefix added to progress messages in Streamlit mode.
+    force_train : bool, default=False
+        If True, ignore any saved model and retrain from scratch.
 
     Returns
     -------
-    model: FMNIST_MLP
-        The model.
+    model : FMNIST_MLP
+        Loaded or trained model, with training metrics stored in
+        ``model.metrics``.
     """
     if not os.path.exists("saved_models"):
         os.mkdir("saved_models")
@@ -342,12 +348,18 @@ def get_and_train_model(
     # Create the model
     model = FMNIST_MLP(hidden_layers, dropout_rate, norm_type=norm_type) 
     path_weights, path_metrics = paths(
-    hidden_layers, dropout_rate, norm_type=norm_type, lr=lr, epochs=epochs
-)
+        hidden_layers, dropout_rate, norm_type=norm_type, lr=lr, epochs=epochs
+    )
 
     if not force_train:
-        download_if_missing(path_weights)
-        download_if_missing(path_metrics)
+        try:
+            download_if_missing(path_weights)
+            download_if_missing(path_metrics)
+        except FileNotFoundError:
+            if mode == "script":
+                print("No pretrained model found locally or online. Training from scratch.")
+            elif mode == "st":
+                st.write("No pretrained model found locally or online. Training from scratch.")
     
     # Load the weights if they already exist
     if (not force_train) and os.path.exists(path_weights) and os.path.exists(path_metrics):
@@ -378,7 +390,6 @@ def get_and_train_model(
                 st.write("Loading model (from local cache or downloading if needed)...")
 
         loss_fn = nn.CrossEntropyLoss()
-        # optimizer = torch.optim.SGD(model.parameters(), lr=lr)
         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
         epoch_progress_bar = None
@@ -475,11 +486,19 @@ def get_and_train_model(
 
 
 def simple_tokenizer(text):
+    """Tokenize text by lowercasing and removing non-alphanumeric characters."""
     text = text.lower()
     text = re.sub(r"[^a-z0-9\s]", " ", text)
     return text.split()
 
+
 def build_vocab(texts, min_freq=2):
+    """Build a vocabulary dictionary from a list of texts.
+
+    Words appearing at least `min_freq` times are included.
+    Special tokens <PAD> and <UNK> are added.
+    """
+    
     counter = Counter()
     for text in texts:
         counter.update(simple_tokenizer(text))
@@ -490,7 +509,13 @@ def build_vocab(texts, min_freq=2):
             vocab[word] = len(vocab)
     return vocab
 
+
 def encode_text(text, vocab, max_len=200):
+    """Convert text to a sequence of token indices.
+
+    The text is tokenized, mapped to vocabulary indices,
+    truncated to `max_len`, and padded with <PAD> tokens.
+    """
     tokens = simple_tokenizer(text)
     ids = [vocab.get(tok, vocab["<UNK>"]) for tok in tokens]
     ids = ids[:max_len]
@@ -499,6 +524,30 @@ def encode_text(text, vocab, max_len=200):
 
 
 class IMDBDataset(Dataset):
+    """PyTorch Dataset for IMDb sentiment analysis.
+
+    This dataset stores raw text reviews and their labels, and converts
+    each text into a sequence of token indices using a given vocabulary.
+    Sequences are padded or truncated to a fixed maximum length.
+
+    Parameters
+    ----------
+    texts : list of str
+        List of input text reviews.
+    labels : list of int
+        Corresponding sentiment labels (0 or 1).
+    vocab : dict
+        Mapping from tokens to integer indices.
+    max_len : int, default=200
+        Maximum sequence length for each encoded text.
+
+    Returns
+    -------
+    x : torch.Tensor
+        Tensor of token indices of shape (max_len,).
+    y : torch.Tensor
+        Label tensor (float32).
+    """
     def __init__(self, texts, labels, vocab, max_len=200):
         self.texts = texts
         self.labels = labels
@@ -518,6 +567,46 @@ class IMDBDataset(Dataset):
 
 
 class IMDB_RNN(nn.Module):
+    """Recurrent neural network for IMDb sentiment analysis.
+
+    This model processes sequences of token indices using an embedding layer
+    followed by a simple RNN. The final hidden state is optionally normalized
+    (BatchNorm or LayerNorm), then passed through a dropout layer and a final
+    linear classifier.
+
+    The model outputs logits for binary classification.
+
+    Parameters
+    ----------
+    vocab_size : int
+        Size of the vocabulary used for the embedding layer.
+    embedding_dim : int, default=64
+        Dimension of the word embeddings.
+    hidden_dim : int, default=128
+        Hidden dimension of the RNN.
+    num_layers : int, default=1
+        Number of recurrent layers.
+    dropout_rate : float, default=0.0
+        Dropout rate applied after normalization.
+    norm_type : str, default="none"
+        Type of normalization applied to the final hidden state.
+        Must be one of {"none", "batchnorm", "layernorm"}.
+
+    Attributes
+    ----------
+    embedding : nn.Embedding
+        Embedding layer mapping token indices to vectors.
+    rnn : nn.RNN
+        Recurrent layer processing the sequence.
+    norm : nn.Module
+        Normalization layer applied to the final hidden state.
+    dropout : nn.Dropout
+        Dropout layer applied after normalization.
+    fc : nn.Linear
+        Final linear layer producing a single logit.
+    metrics : pd.DataFrame
+        DataFrame storing training and test metrics across epochs.
+    """
     def __init__(
         self,
         vocab_size,
@@ -625,6 +714,7 @@ def train_step_binary(dataloader, model, loss_fn, optimizer, device, mode=None):
     correct /= size
     return train_loss, correct
 
+
 def test_step_binary(dataloader, model, loss_fn, device, mode=None):
     """Evaluation step for binary classification.
 
@@ -679,6 +769,7 @@ def test_step_binary(dataloader, model, loss_fn, device, mode=None):
 
     return test_loss, correct
 
+
 def get_and_train_rnn_model(
     train_dataloader,
     test_dataloader,
@@ -696,43 +787,47 @@ def get_and_train_rnn_model(
     progress_prefix="",
     force_train=False,
 ):
-    """Creates, trains, loads, and saves an RNN model for IMDb sentiment analysis.
+    """Create, load, train, and save an RNN model for IMDb sentiment analysis.
 
     Parameters
     ----------
     train_dataloader : torch.utils.data.DataLoader
-        Training dataloader.
+        DataLoader for the training dataset.
     test_dataloader : torch.utils.data.DataLoader
-        Test dataloader.
+        DataLoader for the test dataset.
     vocab_size : int
-        Vocabulary size for nn.Embedding.
+        Vocabulary size used by the embedding layer.
     embedding_dim : int, default=64
-        Embedding dimension.
+        Dimension of the word embeddings.
     hidden_dim : int, default=128
         Hidden dimension of the RNN.
     num_layers : int, default=1
         Number of recurrent layers.
     dropout_rate : float, default=0.0
-        Dropout rate after normalization / hidden representation.
+        Dropout rate applied after normalization of the final hidden state.
     norm_type : str, default="none"
-        One of {"none", "batchnorm", "layernorm"}.
+        Type of normalization applied to the final hidden state.
+        Must be one of {"none", "batchnorm", "layernorm"}.
     lr : float, default=1e-3
-        Learning rate.
+        Learning rate used by the optimizer.
     epochs : int, default=5
-        Number of epochs.
+        Number of training epochs.
     max_len : int, default=200
-        Maximum sequence length used in preprocessing.
+        Maximum sequence length used during preprocessing.
     train_size : int, optional
-        Size of the training subset, useful for naming saved files.
+        Size of the training subset, used notably for naming saved files.
     mode : str, optional
-        "script" or "st".
+        Either "script" for console output or "st" for Streamlit display.
     progress_prefix : str, default=""
-        Prefix used in Streamlit progress messages.
+        Prefix added to progress messages in Streamlit mode.
+    force_train : bool, default=False
+        If True, ignore any saved model and retrain from scratch.
 
     Returns
     -------
     model : IMDB_RNN
-        The loaded or trained model.
+        Loaded or trained RNN model, with training metrics stored in
+        ``model.metrics``.
     """
     if not os.path.exists("saved_models"):
         os.mkdir("saved_models")
@@ -751,21 +846,27 @@ def get_and_train_rnn_model(
     )
 
     path_weights, path_metrics = paths_rnn(
-    embedding_dim=embedding_dim,
-    hidden_dim=hidden_dim,
-    num_layers=num_layers,
-    dropout_rate=dropout_rate,
-    norm_type=norm_type,
-    epochs=epochs,
-    lr=lr,
-    max_len=max_len,
-    train_size=train_size,
-)
+        embedding_dim=embedding_dim,
+        hidden_dim=hidden_dim,
+        num_layers=num_layers,
+        dropout_rate=dropout_rate,
+        norm_type=norm_type,
+        epochs=epochs,
+        lr=lr,
+        max_len=max_len,
+        train_size=train_size,
+    )
 
     if not force_train:
-        download_if_missing(path_weights)
-        download_if_missing(path_metrics)
-
+        try:
+            download_if_missing(path_weights)
+            download_if_missing(path_metrics)
+        except FileNotFoundError:
+            if mode == "script":
+                print("No pretrained model found locally or online. Training from scratch.")
+            elif mode == "st":
+                st.write("No pretrained model found locally or online. Training from scratch.")
+        
     # Load if saved model exists
     if (not force_train) and os.path.exists(path_weights) and os.path.exists(path_metrics):
         if mode == "script":
@@ -895,6 +996,7 @@ def get_and_train_rnn_model(
 
     return model
 
+
 def get_IMDB_datasets(
     batch_size=64,
     max_len=200,
@@ -989,6 +1091,7 @@ def get_IMDB_datasets(
         return train_dataloader, test_dataloader
     else:
         return train_dataloader, test_dataloader, train_dataset, test_dataset, vocab
+
     
 if __name__ == "__main__":
     mode = "script"
@@ -1023,5 +1126,3 @@ if __name__ == "__main__":
         mode=mode,
     )
     training_curves(model, mode)
-
-
