@@ -471,7 +471,7 @@ def imdb_rnn_page():
     max_len = st.slider("Maximum sequence length", 50, 400, 200, 50)
 
     train_size = st.slider("Train subset size", 500, 5000, 2000, 500)
-    test_size = st.slider("Test subset size", 200, 2000, 1000, 200)
+    test_size = 1000
 
     force_train = st.checkbox("Force retrain (ignore local and remote pretrained model)", value=False)
 
