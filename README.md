@@ -5,21 +5,18 @@
 
 ## Installation and usage
 
-We recommend using a conda environment for compatibility with PyTorch and its dependencies.
+This project relies on PyTorch and pyarrow, which are more reliably installed using conda.
 
-### 1. Create and activate a virtual environment
+### 1. Create and activate a conda environment
 
+```bash
 conda create -n dlproj python=3.10 -y
 conda activate dlproj
-
-### 2. Install dependencies
-
-conda install -c conda-forge pyarrow -y
+conda install -c conda-forge pyarrow pytorch torchvision -y
 pip install -r requirements.txt
-
-### 3. Run the application
-
 streamlit run app.py
+```
+
 
 # Fashion-MNIST MLP
 
