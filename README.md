@@ -3,21 +3,21 @@
 
 # Projet de Deep Learning
 
-## Installation
+## Installation and usage
 
-### Standard installation
+We recommend using a conda environment for compatibility with PyTorch and its dependencies.
 
+### 1. Create and activate a virtual environment
+
+conda create -n dlproj python=3.10 -y
+conda activate dlproj
+
+### 2. Install dependencies
+
+conda install -c conda-forge pyarrow -y
 pip install -r requirements.txt
 
-### If installation fails (especially on pyarrow)
-
-Some environments may fail when installing `datasets` with pip due to `pyarrow`.
-
-In that case, run:
-
-conda install -c conda-forge pyarrow datasets
-
-### How to run
+### 3. Run the application
 
 streamlit run app.py
 
