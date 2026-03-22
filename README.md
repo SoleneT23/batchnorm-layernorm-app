@@ -17,6 +17,10 @@ In that case, run:
 
 conda install -c conda-forge pyarrow datasets
 
+### How to run
+
+streamlit run app.py
+
 # Fashion-MNIST MLP
 
 MLP Comparison Modes
